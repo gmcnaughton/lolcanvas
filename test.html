@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+	<title>Test</title>
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/reset/reset-min.css">
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/base/base-min.css">
+	<style type="text/css">
+.palette-swatch {
+  position: relative;
+}
+.palette-select {
+  position: absolute;
+  top: 24px;
+  left: 0px;
+  display: none;
+  border: 1px solid black;
+}
+.palette-option {
+  width: 48px;
+  height: 24px;
+}
+.palette-color {
+  width: 20px;
+  height: 20px;
+  margin: 2px;
+  display: inline-block;
+  outline: 1px solid gray;
+}
+	</style>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+	<script src="js/jquery.palette.js"></script>
+</head>
+<body>
+  
+  <h1>Palette test</h1>
+  
+  <div>
+    Currently selected: <span id="current-palette">none</span>
+  </div>
+  
+  <select id="palette">
+    <option value="black white">Monochrome</option>
+    <option value="green red">Christmas</option>
+  </select>
+  
+  <script>
+  $(function() {
+    $('#palette').palette({ onChange: function(value, label) {
+      $('#current-palette').html(label + ' (' + value + ')');
+    }});
+  });
+  </script>
+</body>
+</html>

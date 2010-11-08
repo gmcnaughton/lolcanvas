@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	
+	<!-- For iPhone support -->
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="viewport" content="width=device-width, user-scalable=yes" />
+
+	<title>HTML5 Lolcat Buildr</title>
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/reset/reset-min.css">
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/base/base-min.css">
+	<link rel="stylesheet" media="screen" type="text/css" href="css/colorpicker.css" />
+	<style>
+div.box {
+  border-radius: 10px;
+  -moz-border-radius: 10px;
+  padding: 10px;
+  box-shadow: 10px 10px #353341;
+  float: left;
+  margin: 10px;
+  background-color: #87CCB9;
+}
+#write label {
+  display: inline-block;
+  width: 100px;
+}
+#write input {
+  display: inline-block;
+  width: 150px;
+  margin: 0.5em;
+}
+#play {
+  background-color: #E5C673;
+}
+#canvas {
+  border: 1px solid black;
+}
+#samples {
+  margin: 10px 0px;
+}
+#samples .sample {
+  background-color: white;
+  border: 1px solid black;
+  display: inline-block;
+  height: 100px;
+  width: 100px;
+}
+#samples .sample a {
+  background-position: 50% 50%;
+  background-repeat: no-repeat;
+  display: block;
+  height: 100px;
+  width: 100px;
+}
+span.instruction {
+  font-size: small;
+  font-style: italic;
+}
+.color {
+  display: inline-block;
+  height: 28px;
+  width: 28px;
+  background: url("images/colorpicker/select2.png") repeat scroll center center transparent;
+  position: relative;
+  top: 10px;
+}
+	</style>
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+	<script src="http://documentcloud.github.com/underscore/underscore-min.js"></script>
+	<script type="text/javascript" src="js/colorpicker.js"></script>
+
+  <script type="text/javascript">
+
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-1655007-3']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+
+  </script>
+</head>
+<body>
+
+  <div id="header">
+  </div>
+  <div id="content">
+    <div id="write" class="box">
+      <div>
+        <label for="imgurl">Image url:</label> <input type="url" id="imgurl" placeholder="Image url"><br />
+      </div>
+      
+      <div>
+        <label for="top">Top text:</label>
+        <input type="text" id="top" placeholder="Top text">
+        <div id="top-border-color" class="color" data-value="#000000"></div>
+        <div id="top-color" class="color" data-value="#ffffff"></div>
+      </div>
+      
+      <div>
+        <label for="bottom">Bottom text:</label>
+        <input type="text" id="bottom" placeholder="Bottom text">
+        <div id="bottom-border-color" class="color" data-value="#000000"></div>
+        <div id="bottom-color" class="color" data-value="#ffffff"></div>
+      </div>
+      
+      <div>
+        <button id="render">Render</button>
+      </div>
+      
+      <div id="samples">
+        <div class="sample"><a href="images/samples/bunny.jpg"></a></div>
+        <div class="sample"><a href="images/samples/kitten.jpg"></a></div>
+        <div class="sample"><a href="images/samples/puppy.jpg"></a></div>
+      </div>
+    </div>
+    <div id="play" class="box">
+      <canvas id="canvas" width="400" height="300"></canvas><br />
+      <span class="instruction">To save, right-click and choose 'Save Image As'</span>
+    </div>
+  </div>
+  <div id="footer">
+  </div>
+
+  <script>
+/*jslint white: false, nomen: false */
+/*global $: true, _: true */
+var LC = {};
+
+(function(LC) {
+  var createComponent, createText, createImage;
+  
+  createComponent = function(spec) {
+    var that, getX, setX, getY, setY, getWidth, setWidth, getHeight, setHeight, render;
+    that = {
+      x: (spec && spec.x) || 0,
+      y: (spec && spec.y) || 0,
+      width: (spec && spec.width) || 0,
+      height: (spec && spec.height) || 0
+    };
+    
+    getX = function() { return that.x; };
+    setX = function(x) { that.x = x; };
+    
+    getY = function() { return that.y; };    
+    setY = function(y) { that.y = y; };
+    
+    getWidth = function() { return that.width; };
+    setWidth = function(width) { that.width = width; };
+
+    getHeight = function() { return that.height; };
+    setHeight = function(height) { that.height = height; };
+    
+    // subclasses must override
+    render = function(ctx) {};
+    
+    // public component methods
+    $.extend(that, {
+      getX: getX,
+      setX: setX,
+      getY: getY,
+      setY: setY,
+      getWidth: getWidth,
+      setWidth: setWidth,
+      getHeight: getHeight,
+      setHeight: setHeight,
+      render: render
+    });
+    
+    return that;
+  };
+  
+  createText = function(spec) {
+    var that, render, getText, setText, getFont, setFont, updateSize, getColor, setColor, getBorderColor, setBorderColor;
+    that = $.extend(createComponent(spec), {
+      text: (spec && spec.text) || '',
+      font: (spec && spec.text) || '40px Arial',
+      color: (spec && spec.color) || 'white',
+      borderColor: (spec && spec.borderColor) || 'black'
+    });
+
+    updateSize = function() {
+      LC.ctx.font = that.font;
+      var dim = LC.ctx.measureText(that.text);
+      that.width = dim.width;
+      // NOTE: measureText does not actually return a height!  go figure
+      //this.setHeight(dim.height); // works on IE8 only!
+    };
+
+    getText = function() { return that.text; };
+    setText = function(text) {
+      that.text = text;
+      updateSize();
+    };
+    
+    getFont = function() { return that.font; };
+    setFont = function(font) {
+      that.font = font;
+      updateSize();
+    };
+    
+    getColor = function() { return that.color; };
+    setColor = function(color) { that.color = color; };
+
+    getBorderColor = function() { return that.borderColor; };
+    setBorderColor = function(color) { that.borderColor = color; };
+
+    render = function(ctx) {
+      ctx.font = that.font;
+      ctx.fillStyle = that.color;
+      ctx.strokeStyle = that.borderColor;
+      ctx.lineWidth = '10';
+      ctx.lineJoin = 'miter';
+      ctx.lineCap = 'butt';
+      ctx.miterLimit = '3';
+      
+      // TODO: align to appear on image?
+      // TODO: allow user to drag?
+      ctx.strokeText(that.text, that.x, that.y);
+      ctx.fillText(that.text, that.x, that.y);
+    };
+    
+    // public text methods
+    $.extend(that, {
+      getText: getText,
+      setText: setText,
+      getFont: getFont,
+      setFont: setFont,
+      getColor: getColor,
+      setColor: setColor,
+      getBorderColor: getBorderColor,
+      setBorderColor: setBorderColor,
+      render: render
+    });
+    
+    return that;
+  };
+  
+  createImage = function(spec) {
+    var that, render, getUrl, setUrl, onload;
+    that = $.extend(createComponent(spec), {
+      url: (spec && spec.url) || ''
+    });
+    
+    onload = function() {
+      var width = that.img.width, height = that.img.height;
+      that.width = width;
+      that.height = height;
+      // Resizing canvas.  See: http://stackoverflow.com/questions/331052/how-to-resize-html-canvas-element
+      LC.canvas[0].width = width;
+      LC.canvas[0].height = height;
+      LC.render();
+    };
+    
+    getUrl = function() { return that.url; };
+    setUrl = function(url) {
+      that.url = url;
+      that.img = new Image();
+      that.img.onload = onload;
+      that.img.src = url;
+    };
+    
+    render = function(ctx) {
+      // TODO: scaling factor to ensure it fits in viewable client area
+      // TODO: allow resizing
+      if (that.img) {
+        ctx.drawImage(that.img, that.x, that.y);
+      }
+    };
+    
+    // public image methods
+    $.extend(that, {
+      getUrl: getUrl,
+      setUrl: setUrl,
+      render: render
+    });
+    
+    return that;
+  };
+  
+  $.extend(LC, {
+    createComponent: createComponent,
+    createText: createText,
+    createImage: createImage
+  });
+}(LC));
+  
+$(function() {
+  // goals:
+  // - phone: allow positioning of text
+  // - phone: allow choosing image from library
+  // - styling of text (dropshadow)
+  // - save image locally (Q: phones allow?)
+  // - save image to server (Q: want to build server infrastructure?)
+  // - server-side proxy for loading arbitrary images
+  // - ColourLovers integration(?) -- color palette suggestion from image
+  // - custom colors
+  // - custom fonts (Google Font API?)
+  //
+  // complete:
+  // - usable in browser
+  // - choice of image (Q: will phones allow us to import from image library?)
+  // - addition of text
+  // - editing of text
+  
+  var render, components, nearest, canvas, ctx, img = LC.createImage(), top = LC.createText({x: 10, y: 50}), bottom = LC.createText({x: 10, y: 300}), colorFn;
+  components = [img, top, bottom];
+  
+  // Image change
+  $('#imgurl').change(function() {
+    img.setUrl($(this).val());
+  });
+  
+  // Text change
+  $('#top').change(function() {
+    top.setText($(this).val());
+    render();
+  });
+  $('#bottom').change(function() {
+    bottom.setText($(this).val());
+    render();
+  });
+  
+  // Color pickers
+  $('#write .color').each(function() {
+    var $this = $(this);
+    $this.ColorPicker({
+      onSubmit: function(hsb, hex, rgb, el) {
+        $this.data('value', '#' + hex).change();
+        $this.ColorPickerHide();
+    	},
+    	onBeforeShow: function () {
+    		$this.ColorPickerSetColor($this.data('value'));
+    	}
+    });
+    $this.css('background-color', $this.data('value'));
+  });
+  colorFn = function(obj, method) {
+    return function() {
+      var color = $(this).data('value');
+      $(this).css('background-color', color)
+      obj[method](color);
+      render();
+    };
+  };
+  $('#top-color').change(colorFn(top, 'setColor'));
+  $('#top-border-color').change(colorFn(top, 'setBorderColor'));
+  $('#bottom-color').change(colorFn(bottom, 'setColor'));
+  $('#bottom-border-color').change(colorFn(bottom, 'setBorderColor'));
+  
+  // Actions
+  $('#render').click(function() {
+    $('#imgurl').change();
+    $('#top').change();
+    $('#bottom').change();
+    $('#top-color').change();
+    $('#top-border-color').change();
+    $('#bottom-color').change();
+    $('#bottom-border-color').change();
+    render();
+  });
+  
+  // Sample images
+  $('#samples .sample a').click(function(event) {
+    $('#imgurl').val($(this).attr('href')).change();
+    event.preventDefault();
+  }).each(function() { 
+    $(this).css('background-image', 'url(' + $(this).attr('href') + ')');
+  });
+  
+  // Canvas
+  canvas = $('#canvas');
+  if (canvas[0].getContext) {
+    ctx = canvas[0].getContext('2d');
+  } else {
+    // TODO: canvas not supported
+  }
+  
+  nearest = function(x, y) {
+    var MAX_SELECTION_RADIUS = 50, closest = null, closestDist = MAX_SELECTION_RADIUS, c, top, bottom, left, right, dx, dy, dist, i;
+    // TODO: can use _(components).chain().reverse().each(...).reverse() (yeah, but come on, double reverse -- really?)
+    for (i = components.length - 1; i >= 0; i -= 1) {
+      c = components[i];
+      
+      // skip the background image
+      if (c.img) { continue; }
+      
+      top = c.getY();
+      bottom = c.getY() + c.getHeight();
+      left = c.getX();
+      right = c.getX() + c.getWidth();
+      /*
+      dx = x - c.getX();
+      dy = y - c.getY();
+      */
+      dx = (x < left ? left - x : x > right ? x - right : 0);
+      dy = (y < top ? top - y : y > bottom ? y - bottom : 0);
+      dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < closestDist) {
+        closest = c;
+        closestDist = dist;
+      }
+    }
+    return closest;
+  };
+  
+  canvas.mousedown(function(event) {
+    var downX, downY, c, cx, cy;
+    downX = event.pageX - canvas.offset().left;
+    downY = event.pageY - canvas.offset().top;
+    c = nearest(downX, downY);
+    cx = (c && c.getX()) || 0;
+    cy = (c && c.getY()) || 0;
+    
+    canvas.bind('mousemove', function(event) {
+      var offset = canvas.offset(), x = event.pageX - offset.left, y = event.pageY - offset.top;
+      if (c) {
+        c.setX(cx + (x - downX));
+        c.setY(cy + (y - downY));
+      }
+      render();
+    });
+  }).mouseup(function() {
+    canvas.unbind('mousemove');
+  });
+
+  render = function() {
+    ctx.save();
+    ctx.scale(1.0, 1.0);
+    _.each(components, function(c) {
+      c.render(ctx);
+    });
+    ctx.restore();
+  };
+  
+  $.extend(LC, {
+    render: render,
+    canvas: canvas,
+    ctx: ctx
+  });
+});
+  </script>
+  </body>
+</html>
