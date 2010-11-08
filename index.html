@@ -308,7 +308,7 @@ $(function() {
   // - addition of text
   // - editing of text
   
-  var render, components, nearest, canvas, ctx, img = LC.createImage(), top = LC.createText({x: 10, y: 50}), bottom = LC.createText({x: 10, y: 300}), colorFn;
+  var render, components, nearest, canvas, ctx, img = LC.createImage(), top = LC.createText({x: 10, y: 50}), bottom = LC.createText({x: 10, y: 300}), colorFn, convertTouchEvent;
   components = [img, top, bottom];
   
   // Image change
@@ -409,24 +409,35 @@ $(function() {
     return closest;
   };
   
-  canvas.mousedown(function(event) {
-    var downX, downY, c, cx, cy;
+  // Convert touch events (iPhone/iPod/iPad/Android) to events that can be treated like mouse events
+  // See http://www.the-xavi.com/articles/trouble-with-touch-events-jquery
+  convertTouchEvent = function(e) {
+    if(e.originalEvent.touches && e.originalEvent.touches.length) {
+        e = e.originalEvent.touches[0];
+    } else if(e.originalEvent.changedTouches && e.originalEvent.changedTouches.length) {
+        e = e.originalEvent.changedTouches[0];
+    }
+    return e;
+  };
+  
+  canvas.bind('mousedown touchstart MozTouchDown', function(event) {
+    var downX, downY, c;
+    event = convertTouchEvent(event);
     downX = event.pageX - canvas.offset().left;
     downY = event.pageY - canvas.offset().top;
     c = nearest(downX, downY);
-    cx = (c && c.getX()) || 0;
-    cy = (c && c.getY()) || 0;
-    
-    canvas.bind('mousemove', function(event) {
-      var offset = canvas.offset(), x = event.pageX - offset.left, y = event.pageY - offset.top;
-      if (c) {
+    if (c) {
+      var cx = c.getX(), cy = c.getY();
+      canvas.bind('mousemove touchmove MozTouchMove', function(event) {
+        event = convertTouchEvent(event);
+        var offset = canvas.offset(), x = event.pageX - offset.left, y = event.pageY - offset.top;
         c.setX(cx + (x - downX));
         c.setY(cy + (y - downY));
-      }
-      render();
-    });
-  }).mouseup(function() {
-    canvas.unbind('mousemove');
+        render();
+      });
+    }
+  }).bind('mouseup touchend MozTouchEnd', function() {
+    canvas.unbind('mousemove touchmove MozTouchMove');
   });
 
   render = function() {
