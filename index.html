@@ -8,9 +8,10 @@
   <meta name="viewport" content="width=device-width, user-scalable=yes" />
 
 	<title>HTML5 Lolcat Buildr</title>
+  <link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/themes/base/jquery-ui.css"/>
 	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/reset/reset-min.css">
 	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/base/base-min.css">
-	<link rel="stylesheet" media="screen" type="text/css" href="css/colorpicker.css" />
+	<link rel="stylesheet" type="text/css" href="css/colorpicker.css" />
 	<style>
 div.box {
   border-radius: 10px;
@@ -65,9 +66,14 @@ span.instruction {
   position: relative;
   top: 10px;
 }
+.scale {
+  margin-left: 100px;
+  width: 100px;
+}
 	</style>
 
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script>
 	<script src="http://documentcloud.github.com/underscore/underscore-min.js"></script>
 	<script type="text/javascript" src="js/colorpicker.js"></script>
 
@@ -100,6 +106,7 @@ span.instruction {
         <input type="text" id="top" placeholder="Top text">
         <div id="top-border-color" class="color" data-value="#000000"></div>
         <div id="top-color" class="color" data-value="#ffffff"></div>
+        <div id="top-scale" class="scale"></div>
       </div>
       
       <div>
@@ -107,6 +114,7 @@ span.instruction {
         <input type="text" id="bottom" placeholder="Bottom text">
         <div id="bottom-border-color" class="color" data-value="#000000"></div>
         <div id="bottom-color" class="color" data-value="#ffffff"></div>
+        <div id="bottom-scale" class="scale"></div>
       </div>
       
       <div>
@@ -136,12 +144,13 @@ var LC = {};
   var createComponent, createText, createImage;
   
   createComponent = function(spec) {
-    var that, getX, setX, getY, setY, getWidth, setWidth, getHeight, setHeight, render;
+    var that, getX, setX, getY, setY, getWidth, setWidth, getHeight, setHeight, getScale, setScale, render;
     that = {
       x: (spec && spec.x) || 0,
       y: (spec && spec.y) || 0,
       width: (spec && spec.width) || 0,
-      height: (spec && spec.height) || 0
+      height: (spec && spec.height) || 0,
+      scale: (spec && spec.scale) || 1.0
     };
     
     getX = function() { return that.x; };
@@ -156,6 +165,9 @@ var LC = {};
     getHeight = function() { return that.height; };
     setHeight = function(height) { that.height = height; };
     
+    getScale = function() { return that.scale; };
+    setScale = function(scale) { that.scale = scale; }
+    
     // subclasses must override
     render = function(ctx) {};
     
@@ -169,6 +181,8 @@ var LC = {};
       setWidth: setWidth,
       getHeight: getHeight,
       setHeight: setHeight,
+      getScale: getScale,
+      setScale: setScale,
       render: render
     });
     
@@ -221,8 +235,8 @@ var LC = {};
       
       // TODO: align to appear on image?
       // TODO: allow user to drag?
-      ctx.strokeText(that.text, that.x, that.y);
-      ctx.fillText(that.text, that.x, that.y);
+      ctx.strokeText(that.text, 0, 0);
+      ctx.fillText(that.text, 0, 0);
     };
     
     // public text methods
@@ -353,6 +367,11 @@ $(function() {
   $('#bottom-color').change(colorFn(bottom, 'setColor'));
   $('#bottom-border-color').change(colorFn(bottom, 'setBorderColor'));
   
+  // Sliders
+  $('div.scale').slider({ value: 1.0, min: 0.25, max: 3.0, step: 0.001 });
+  $('#top-scale').bind('slidechange', function(event, ui) { top.setScale(ui.value); render(); });
+  $('#bottom-scale').bind('slidechange', function(event, ui) { bottom.setScale(ui.value); render(); });
+  
   // Actions
   $('#render').click(function() {
     $('#imgurl').change();
@@ -381,23 +400,21 @@ $(function() {
     // TODO: canvas not supported
   }
   
+  // Determine which component is closest to the given point.
+  // If no component is closer than MAX_SELECTION_RADIUS, returns null.
   nearest = function(x, y) {
     var MAX_SELECTION_RADIUS = 50, closest = null, closestDist = MAX_SELECTION_RADIUS, c, top, bottom, left, right, dx, dy, dist, i;
-    // TODO: can use _(components).chain().reverse().each(...).reverse() (yeah, but come on, double reverse -- really?)
     for (i = components.length - 1; i >= 0; i -= 1) {
       c = components[i];
       
       // skip the background image
       if (c.img) { continue; }
       
+      // calculate distance from click point to component bounds
       top = c.getY();
-      bottom = c.getY() + c.getHeight();
+      bottom = c.getY() + (c.getHeight() * c.getScale());
       left = c.getX();
-      right = c.getX() + c.getWidth();
-      /*
-      dx = x - c.getX();
-      dy = y - c.getY();
-      */
+      right = c.getX() + (c.getWidth() * c.getScale());
       dx = (x < left ? left - x : x > right ? x - right : 0);
       dy = (y < top ? top - y : y > bottom ? y - bottom : 0);
       dist = Math.sqrt(dx*dx + dy*dy);
@@ -444,12 +461,13 @@ $(function() {
   });
 
   render = function() {
-    ctx.save();
-    ctx.scale(1.0, 1.0);
     _.each(components, function(c) {
+      ctx.save();
+      ctx.translate(c.getX(), c.getY());
+      ctx.scale(c.getScale(), c.getScale());
       c.render(ctx);
+      ctx.restore();
     });
-    ctx.restore();
   };
   
   $.extend(LC, {
