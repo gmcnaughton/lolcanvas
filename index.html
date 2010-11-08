@@ -421,23 +421,26 @@ $(function() {
   };
   
   canvas.bind('mousedown touchstart MozTouchDown', function(event) {
-    var downX, downY, c;
+    var downX, downY, c, origEvent = event;
     event = convertTouchEvent(event);
     downX = event.pageX - canvas.offset().left;
     downY = event.pageY - canvas.offset().top;
     c = nearest(downX, downY);
     if (c) {
+      origEvent.preventDefault(); // disable default scroll behavior for touch events
       var cx = c.getX(), cy = c.getY();
       canvas.bind('mousemove touchmove MozTouchMove', function(event) {
+        event.preventDefault();  // disable default scroll behavior for touch events
         event = convertTouchEvent(event);
         var offset = canvas.offset(), x = event.pageX - offset.left, y = event.pageY - offset.top;
         c.setX(cx + (x - downX));
         c.setY(cy + (y - downY));
         render();
+      }).bind('mouseup touchend MozTouchEnd', function(event) {
+        event.preventDefault(); // disable default scroll behavior for touch events
+        canvas.unbind('mousemove touchmove MozTouchMove');
       });
     }
-  }).bind('mouseup touchend MozTouchEnd', function() {
-    canvas.unbind('mousemove touchmove MozTouchMove');
   });
 
   render = function() {
