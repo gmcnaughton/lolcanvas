@@ -75,7 +75,8 @@ span.instruction {
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script>
 	<script src="http://documentcloud.github.com/underscore/underscore-min.js"></script>
-	<script type="text/javascript" src="js/colorpicker.js"></script>
+	<script src="js/colorpicker.min.js"></script>
+	<script src="js/jquery.url.min.js"></script>
 
   <script type="text/javascript">
 
@@ -235,7 +236,6 @@ var LC = {};
       ctx.miterLimit = '3';
       
       // TODO: align to appear on image?
-      // TODO: allow user to drag?
       ctx.strokeText(that.text, 0, 0);
       ctx.fillText(that.text, 0, 0);
     };
@@ -282,7 +282,6 @@ var LC = {};
     
     render = function(ctx) {
       // TODO: scaling factor to ensure it fits in viewable client area
-      // TODO: allow resizing
       if (that.img) {
         ctx.drawImage(that.img, that.x, that.y);
       }
@@ -306,15 +305,13 @@ var LC = {};
 }(LC));
   
 $(function() {
-  // goals:
-  // - phone: allow positioning of text
+  // TODO:
   // - phone: allow choosing image from library
   // - styling of text (dropshadow)
   // - save image locally (Q: phones allow?)
   // - save image to server (Q: want to build server infrastructure?)
   // - server-side proxy for loading arbitrary images
   // - ColourLovers integration(?) -- color palette suggestion from image
-  // - custom colors
   // - custom fonts (Google Font API?)
   //
   // complete:
@@ -322,6 +319,8 @@ $(function() {
   // - choice of image (Q: will phones allow us to import from image library?)
   // - addition of text
   // - editing of text
+  // - phone: allow positioning of text
+  // - custom colors
   
   var render, components, nearest, canvas, ctx, img = LC.createImage(), top = LC.createText({x: 10, y: 50}), bottom = LC.createText({x: 10, y: 300}), colorFn, convertTouchEvent;
   components = [img, top, bottom];
@@ -329,6 +328,7 @@ $(function() {
   // Image change
   $('#imgurl').change(function() {
     img.setUrl($(this).val());
+    render();
   });
   
   // Text change
@@ -470,6 +470,22 @@ $(function() {
       ctx.restore();
     });
   };
+  
+  // HACK: I disagree with jquery-url-parser.  It should auto-decode parameters.
+  $.url.p = function(key) { var val = $.url.param(key); if (val) { return decodeURIComponent(val); } };
+  
+  // Load url parameter values, if any
+  _.each(['imgurl', 'top', 'top-border-color', 'top-color', 'top-scale', 'bottom', 'bottom-border-color', 'bottom-color', 'bottom-scale'], function(key) {
+    var val = $.url.p(key);
+    if (val) {
+      if (key.match(/-color$/)) {
+        $('#' + key).data('value', val);
+      } else {
+        $('#' + key).val(val);
+      }
+    }
+  });
+  // TODO: handle x/y positions as well
   
   $.extend(LC, {
     render: render,
